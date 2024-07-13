@@ -1,0 +1,74 @@
+name: Build Workflow
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-2019
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2  # Atualizado para v2
+
+      - name: Install Python
+        uses: actions/setup-python@v2  # Atualizado para v2
+        with:
+          python-version: '3.12.3'
+          architecture: 'x64'
+
+      - name: Install requirements
+        run: |
+          pip install PyInstaller
+          pip install -r requirements.txt
+
+      - name: Modify pkg_resources
+        run: |
+          $path = "C:\hostedtoolcache\windows\Python\3.12.3\x64\Lib\site-packages\pkg_resources\__init__.py"
+          (Get-Content $path) -replace 'ImpImporter', 'zipimporter' | Set-Content $path
+
+      - name: Run PyInstaller
+        run: |
+          python -m PyInstaller --onefile --name kiwifei main.py
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Get latest 0.1.X tag and increment
+        id: increment_tag
+        run: |
+          TAG=$(git tag --list '0.1.*' | sort -V | tail -n1)
+          if [[ -z "$TAG" ]]; then
+            echo "::set-output name=new_tag::0.1.0"
+          else
+            NEXT_NUM=$(echo $TAG | awk -F '.' '{print $3+1}')
+            echo "::set-output name=new_tag::0.1.$NEXT_NUM"
+          fi
+        shell: bash
+
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.increment_tag.outputs.new_tag }}
+          release_name: 'kiwifei'
+          body: 'Automatic release of version ${{ steps.increment_tag.outputs.new_tag }}'
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/kiwifei.exe
+          asset_name: kiwifei-Windows-amd64.exe
+          asset_content_type: application/zip
