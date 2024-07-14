@@ -1,14 +1,22 @@
 import yt_dlp
 import requests
 from login import kiwifysession
-from utils import SilentLogger, os
+from utils import SilentLogger, os, shorten_folder_name
 
 
 def download_files(lesson_folder, name, url):
   headers = kiwifysession.headers
   response = requests.get(url, headers=headers)
-  with open(os.path.join(lesson_folder, name), 'wb') as f:
+  lesson_folder = shorten_folder_name(os.path.join(lesson_folder, name))
+  with open(lesson_folder, 'wb') as f:
     f.write(response.content)
+
+
+def save_html(content_folder, html):
+  file_path = shorten_folder_name(os.path.join(content_folder, 'texto.html'))
+  if not os.path.exists(file_path):
+    with open(file_path, 'w', encoding='utf-8') as file:
+      file.write(str(html))
 
 
 def download_with_ytdlp(output_folder, media, session=None):

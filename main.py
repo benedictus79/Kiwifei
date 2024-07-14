@@ -1,5 +1,6 @@
-from download import download_files, download_with_ytdlp
 from login import selected_course, kiwifysession
+from download import download_files, download_with_ytdlp, save_html
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils import clear_folder_name, os, create_folder, shorten_folder_name
 from tqdm import tqdm
 
@@ -12,26 +13,47 @@ def check_url_player(lesson_name_media, url):
     download_with_ytdlp(lesson_name_media, url)
 
 
-def get_lessons(module_folder, lessons):
-  for i, lesson in enumerate(lessons, start=1):
-    lesson_title = clear_folder_name(f'{i:03d} - {lesson["title"]}')
-    lesson_folder = create_folder(shorten_folder_name(os.path.join(module_folder, lesson_title)))
-    if lesson.get('files'):
-      files = lesson['files']
-      for file in files:
-        lesson_file_folder = create_folder(os.path.join(module_folder, lesson_title, 'material'))
-        download_files(lesson_file_folder, file['name'], file['url'])
+def process_lesson_video(lesson_folder, lesson):
+  if lesson.get('video'):
+    lesson_name_media = os.path.join(lesson_folder, 'aula')
+    url = lesson['video']['stream_link']
+    check_url_player(lesson_name_media, url)
+  if lesson.get('youtube_video'):
+    lesson_name_media = os.path.join(lesson_folder, 'aula')
+    url = lesson['youtube_video']
+    download_with_ytdlp(lesson_name_media, url)
 
-    if lesson.get('video'):
-      lesson_name_media = os.path.join(lesson_folder, 'aula')
-      url = lesson['video']['stream_link']
-      check_url_player(lesson_name_media, url)
+
+def process_lesson_files(lesson_folder, lesson):
+  if lesson.get('files'):
+    for file in lesson['files']:
+      lesson_file_folder = create_folder(shorten_folder_name(os.path.join(lesson_folder, 'material')))
+      download_files(lesson_file_folder, file['name'], file['url'])
+
+
+def process_lesson_content(lesson_folder, lesson):
+  if lesson.get('content'):
+    lesson_content_folder = create_folder(shorten_folder_name(os.path.join(lesson_folder, 'complemento')))
+    save_html(lesson_content_folder, lesson['content'])
+
+
+def get_lessons(module_folder, lessons):
+  with ThreadPoolExecutor(max_workers=3) as executor:
+    futures = []
+    for i, lesson in enumerate(lessons, start=1):
+      lesson_title = clear_folder_name(f'{i:03d} - {lesson["title"]}')
+      lesson_folder = create_folder(shorten_folder_name(os.path.join(module_folder, lesson_title)))
+      future_video = executor.submit(process_lesson_video,lesson_folder, lesson)
+      future_files = executor.submit(process_lesson_files,lesson_folder, lesson)
+      future_content = executor.submit(process_lesson_content,lesson_folder, lesson)
+      futures.extend([future_video, future_files, future_content])
+    for future in as_completed(futures):
+      future.result()
 
 
 def process_data_module(module_folder, data):
   for module_id, module_lesson in data.items():
-    lessons = module_lesson
-    get_lessons(module_folder, lessons)
+    get_lessons(module_folder, module_lesson)
 
 
 def process_modules(data):
