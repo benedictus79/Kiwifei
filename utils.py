@@ -56,9 +56,9 @@ def log_to_file(filename, message):
 
 def logger(message, error=None, warning=None):
   if error:
-    log_to_file('hotm4rtei_erros.txt', message)
+    log_to_file('kiwifei_erros.txt', message)
   if warning:
-    log_to_file('hotm4rtei_avisos.txt', message)
+    log_to_file('kiwifei_avisos.txt', message)
 
 
 class SilentLogger(object):
