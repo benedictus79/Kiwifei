@@ -49,8 +49,11 @@ def extract_course_info(course, pattern):
 
 
 def extract_school_id(school):
-  school_id = kiwifysession.get(f'https://admin-api.kiwify.com.br/v1/viewer/schools/{school}/courses').json()['my_courses'][0]['id']
-  return school_id
+  course_data = {}
+  school_ids = kiwifysession.get(f'https://admin-api.kiwify.com.br/v1/viewer/schools/{school}/courses').json()['my_courses']
+  for school_id in school_ids:
+    course_data[school_id['id']] = school_id['name']
+  return course_data
 
 
 def get_courses(token):
@@ -65,7 +68,7 @@ def get_courses(token):
     if course_id and course_name:
       if info_type == 'school_info':
         school_id = extract_school_id(course_id)
-        course_data[school_id] = course_name
+        course_data.update(school_id)
       else:
         course_data[course_id] = course_name
 
