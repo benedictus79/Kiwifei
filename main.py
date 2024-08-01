@@ -1,7 +1,7 @@
 from login import selected_course, kiwifysession
 from download import download_files, download_with_ytdlp, save_html
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from utils import clear_folder_name, os, create_folder, shorten_folder_name
+from utils import clear_folder_name, logger, os, create_folder, shorten_folder_name
 from tqdm import tqdm
 
 
@@ -53,12 +53,17 @@ def get_lessons(module_folder, lessons):
 
 def process_data_module(module_folder, data):
   for module_id, module_lesson in data.items():
-    get_lessons(module_folder, module_lesson)
+    if len(module_lesson) > 0:
+      module_folder = create_folder(shorten_folder_name(module_folder))
+      get_lessons(module_folder, module_lesson)
+    else:
+      msg = f'Este módulo não possui conteudo: {module_folder}'
+      logger(msg, warning=True)
 
 
 def process_modules(data):
   for module_folder, module_info in data.items():
-    module_folder = create_folder(shorten_folder_name(module_folder))
+    module_folder = shorten_folder_name(module_folder)
     process_data_module(module_folder, module_info)
 
 
